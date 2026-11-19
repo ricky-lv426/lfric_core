@@ -203,11 +203,14 @@ end subroutine register_diagnostics_file
 !> @param[in] file_convention Enum denoting the file convention to use for the file
 !> @param[in] update_freq     Enum for update frequency to be passed to temporal
 !!                            controller (optional, only relevant for time series files)
+!> @param[in] file_variable_names  Optional (2,n) array of pairs: model field name
+!!                            and the name of its variable in the file
 function lfric_xios_file_constructor( file_name, xios_id, io_mode, freq,      &
                                       operation, cyclic, field_group_id,      &
                                       fields_in_file, is_diag,                &
                                       diag_always_on_sampling,                &
-                                      file_convention, update_freq ) result(self)
+                                      file_convention, update_freq,           &
+                                      file_variable_names ) result(self)
 
   implicit none
 
@@ -225,10 +228,11 @@ function lfric_xios_file_constructor( file_name, xios_id, io_mode, freq,      &
   logical(l_def),      optional, intent(in) :: diag_always_on_sampling
   integer(i_def),      optional, intent(in) :: file_convention
   integer(i_def),      optional, intent(in) :: update_freq
+  character(len=*),    optional, intent(in) :: file_variable_names(:,:)
   type(field_collection_iterator_type) :: iter
   class(field_parent_type), pointer    :: fld => null()
 
-  integer(i_def) :: field_index
+  integer(i_def) :: field_index, name_index
 
   self%path = file_name
 
@@ -274,6 +278,14 @@ function lfric_xios_file_constructor( file_name, xios_id, io_mode, freq,      &
     do field_index = 1, fields_in_file%get_length()
       fld => iter%next()
       self%fields(field_index) = lfric_xios_field_type(fld, fieldgroup_id=self%field_group_id)
+      if (present(file_variable_names)) then
+        do name_index = 1, size(file_variable_names, 2)
+          if (trim(file_variable_names(1, name_index)) == trim(fld%get_name())) then
+            call self%fields(field_index)%set_xios_name( &
+                                   trim(file_variable_names(2, name_index)) )
+          end if
+        end do
+      end if
     end do
   end if
 
